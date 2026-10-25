@@ -315,29 +315,8 @@ export function createApp() {
         try { body = await c.req.json(); } catch { body = {}; }
         const { inboxId, test } = body || {};
         if (!inboxId) return c.json({ error: 'inboxId required' }, 400);
-       let sub;
-try {
-    ({ sub } = await getStores(c.env));
-} catch (e) {
-    console.error('[push-diag] stage=getStores:', e?.message || e);
-    return c.json({
-        error: 'push diag failed',
-        stage: 'getStores',
-        detail: String(e?.message || e),
-    }, 500);
-}
-
-let subs;
-try {
-    subs = await sub.list(inboxId);
-} catch (e) {
-    console.error('[push-diag] stage=sub.list:', e?.message || e);
-    return c.json({
-        error: 'push diag failed',
-        stage: 'sub.list',
-        detail: String(e?.message || e),
-    }, 500);
-}
+        const { sub } = await getStores(c.env);
+        const subs = await sub.list(inboxId);
         const mask = (s) => {
             const t = s?.token || s?.sub?.token || s?.sub?.endpoint || '';
             const tail = String(t).slice(-6);
@@ -436,9 +415,9 @@ try {
         }
         // M6：输入大小封顶，防 KV 值过大(25MB 限制)写失败/存储 bloat。promptTemplate 含人设+世界书，
         //   正常几 KB~几十 KB；给 256KB 上限足够，超了拒绝（多半是异常/恶意输入）。
-        if (typeof promptTemplate === 'string' && promptTemplate.length > 5 * 1024 * 1024) {
-    return c.json({ error: 'promptTemplate too large (>5MB)' }, 413);
-}
+        if (typeof promptTemplate === 'string' && promptTemplate.length > 256 * 1024) {
+            return c.json({ error: 'promptTemplate too large (>256KB)' }, 413);
+        }
         // D：mcpToolServers/mcpContextServers 也封顶（含 cachedTools 的 inputSchema 可能很大），防 KV bloat。
         for (const [field, val] of [['mcpToolServers', mcpToolServers], ['mcpContextServers', mcpContextServers]]) {
             if (val != null) {
