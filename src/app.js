@@ -315,8 +315,29 @@ export function createApp() {
         try { body = await c.req.json(); } catch { body = {}; }
         const { inboxId, test } = body || {};
         if (!inboxId) return c.json({ error: 'inboxId required' }, 400);
-        const { sub } = await getStores(c.env);
-        const subs = await sub.list(inboxId);
+       let sub;
+try {
+    ({ sub } = await getStores(c.env));
+} catch (e) {
+    console.error('[push-diag] stage=getStores:', e?.message || e);
+    return c.json({
+        error: 'push diag failed',
+        stage: 'getStores',
+        detail: String(e?.message || e),
+    }, 500);
+}
+
+let subs;
+try {
+    subs = await sub.list(inboxId);
+} catch (e) {
+    console.error('[push-diag] stage=sub.list:', e?.message || e);
+    return c.json({
+        error: 'push diag failed',
+        stage: 'sub.list',
+        detail: String(e?.message || e),
+    }, 500);
+}
         const mask = (s) => {
             const t = s?.token || s?.sub?.token || s?.sub?.endpoint || '';
             const tail = String(t).slice(-6);
